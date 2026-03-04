@@ -1,0 +1,516 @@
+#### 1. Bibliotēkas ####
+
+install.packages("tidyverse")
+install.packages("skimr")
+install.packages("esquisse")
+install.packages("scales")
+install.packages("forecast")
+
+library(tidyverse)
+library(skimr)
+library(esquisse)
+library(scales)
+library(forecast)
+
+#### 2. Datu ielāde ####
+
+# Posit cloud ielādēju izmantojot "Upload"
+
+notikumi <- read_delim("tabula1.txt", delim = ";")
+
+pakalpojumi <- read_delim("Tabula2.txt", delim = ";")
+
+#### 3. Aprakstošā statistika un datu apstrāde ####
+
+# head(notikumi, 100)
+#
+# # A tibble: 100 × 4
+# lietotajs datums notikums skaits
+# <dbl>  <dbl> <chr>     <dbl>
+# 1  39646030      1 cits          2
+# 2  39646030      8 cits         12
+# 3  39646030      9 cits          2
+# 4  39646030     10 cits          3
+# 5  39646030     10 zvani         1
+# 6  39646035      4 cits          2
+# 7  39646035      7 cits          9
+# 8  39646035     11 cits          1
+# 9  39646035     12 cits          2
+# 10  39646035     14 cits          7
+
+# skim(notikumi)
+
+# ── Data Summary ────────────────────────
+# Values
+# Name                       notikumi
+# Number of rows             1819866
+# Number of columns          4
+# _______________________
+# Column type frequency:
+# character                1
+# numeric                  3
+# ________________________
+# Group variables            None
+#
+# ── Variable type: character ─────────────────────────────────────────────────────────────────────────────────────────────────
+# skim_variable n_missing complete_rate min max empty n_unique whitespace
+# 1 notikums              0             1   4   5     0        2          0
+#
+# ── Variable type: numeric ───────────────────────────────────────────────────────────────────────────────────────────────────
+# skim_variable n_missing complete_rate        mean         sd       p0      p25      p50       p75     p100 hist
+# 1 lietotajs             0         1     53855278.   8143333.   39646030 46090010 55448015 61091694. 65526740 ▆▃▅▆▇
+# 2 datums                0         1           15.6        8.63        1        8       15       23        30 ▇▇▇▇▇
+# 3 skaits                4         1.000        7.78      46.4         1        2        3        6      8550 ▇▁▁▁▁
+
+
+## Pēc skim() funkcijas noskaidrojās, ka "notikumi" tabulā 4 rindās ir skaita kolonnā ir iztrūkstošās vērtības
+
+# notikumi_t <- notikumi %>%
+# filter(is.na(skaits))
+
+# print(notikumi_t)
+
+## Identificēju iztrūkstošās rindas:
+
+# Lietotajs datums notikums skaits
+# <dbl>  <dbl> <chr>     <dbl>
+# 1  58020090      4 cits         NA
+# 2  58020090     26 cits         NA
+# 3  58020395      7 cits         NA
+# 4  58020395     14 cits         NA
+
+## Atstāju rindas bez iztrūkstošajām NA vērtībām un iztīru liekās atstarpes no kolonnām
+
+notikumi_t <- notikumi %>%
+  filter(!is.na(skaits)) %>%
+  mutate(notikums = str_squish(notikums))
+
+
+
+head(pakalpojumi)
+# # A tibble: 6 × 4
+# Lietotaja_ID Pakalpojums Pak_piesl_datums Pak_atsl_datums
+# <dbl>       <dbl>            <dbl>           <dbl>
+# 1     39646030           1                1              31
+# 2     39646035           1                1              31
+# 3     39646150           2                1              31
+# 4     39646315           1                1              24
+# 5     39646315           2               25              31
+# 6     39646410           1                1              31
+
+
+# skim(pakalpojumi)
+
+# ── Data Summary ────────────────────────
+# Values
+# Name                       pakalpojumi
+# Number of rows             182623
+# Number of columns          4
+# _______________________
+# Column type frequency:
+#   numeric                  4
+# ________________________
+# Group variables            None
+#
+# ── Variable type: numeric ───────────────────────────────────────────────────────────────────────────────────────────────────
+# skim_variable    n_missing complete_rate        mean          sd       p0      p25      p50      p75     p100 hist
+# 1 Lietotaja_ID             0             1 53986858.   8127282.    39646030 46293990 55682915 61074960 65581765 ▆▃▅▆▇
+# 2 Pakalpojums              0             1        1.64       0.481        1        1        2        2        2 ▅▁▁▁▇
+# 3 Pak_piesl_datums         0             1        4.58       7.60         1        1        1        1       30 ▇▁▁▁▁
+# 4 Pak_atsl_datums          0             1       27.4        7.60         2       31       31       31       31 ▁▁▁▁▇
+
+## "pakalpojumi" tabula izskatās labi, jo nav iztrūkstošās vērtības
+
+#### 4. Uzdevumi ####
+
+# 1. uzdevums.	Saskaitīt, kāds bija notikumu skaits pa dienām.
+
+cik_notikumi <- notikumi_t %>%
+  group_by(datums) %>%
+  summarise(notikumu_skaits = sum(skaits))
+
+
+# # A tibble: 30 × 2
+# datums notikumu_skaits
+# <dbl>           <dbl>
+# 1      1          482937
+# 2      2          364965
+# 3      3          351333
+# 4      4          472031
+# 5      5          474326
+# 6      6          474530
+# 7      7          459810
+# 8      8          464592
+# 9      9          359280
+# 10     10          340182
+# # ℹ 20 more rows
+# # ℹ Use `print(n = ...)` to see more rows
+
+print(cik_notikumi)
+
+
+
+max_punkts <- cik_notikumi %>%
+  slice_max(notikumu_skaits, n = 1)
+
+min_punkts <- cik_notikumi %>%
+  slice_min(notikumu_skaits, n = 1)
+
+pedejais_punkts <- cik_notikumi %>%
+  slice_tail(n = 1)
+
+videjais_skaits <- mean(cik_notikumi$notikumu_skaits, na.rm = TRUE)
+
+
+notikumu_grafiks <- ggplot(cik_notikumi, aes(x = datums, y = notikumu_skaits)) +
+  geom_area(fill = "#4C9BE8", alpha = 0.35) +
+  geom_line(color = "#1A73E8", linewidth = 1.2) +
+  geom_point(data = max_punkts,
+             color = "#2E7D32",
+             size = 4) +
+  geom_point(data = min_punkts,
+             color = "#D81B60",
+             size = 4) +
+  geom_point(data = pedejais_punkts,
+             color = "#1A73E8",
+             size = 4) +
+  geom_hline(yintercept = videjais_skaits,
+             color = "black",
+             linetype = "dashed") + annotate(
+               "text",
+               x = Inf,
+               y = videjais_skaits,
+               label = paste0("Vidējais = ", round(videjais_skaits, 0)),
+               hjust = 1.1,
+               vjust = -0.5,
+               color = "black",
+               size = 4
+             ) +
+  geom_text(
+    data = max_punkts,
+    aes(label = notikumu_skaits),
+    vjust = 4,
+    hjust = 0.8,
+    color = "#2E7D32",
+    fontface = "bold",
+    size = 4
+  ) +
+  geom_text(
+    data = min_punkts,
+    aes(label = notikumu_skaits),
+    vjust = 2.5,
+    hjust = 0.8,
+    color = "#D81B60",
+    fontface = "bold",
+    size = 4
+  ) +
+  geom_text(
+    data = pedejais_punkts,
+    aes(label = notikumu_skaits),
+    vjust = -3.5,
+    hjust = 0,
+    color = "#1A73E8",
+    fontface = "bold",
+    size = 4
+  ) +
+  geom_text(
+    data = max_punkts,
+    aes(label = "Max"),
+    vjust = 5.5,
+    hjust = 1.3,
+    color = "#2E7D32",
+    fontface = "bold",
+    size = 3.8
+  ) +
+  geom_text(
+    data = min_punkts,
+    aes(label = "Min"),
+    vjust = 4.0,
+    hjust = 1.5,
+    color = "#D81B60",
+    fontface = "bold",
+    size = 3.8
+  ) +
+  geom_text(
+    data = pedejais_punkts,
+    aes(label = "Pēdejais"),
+    vjust = -2,
+    hjust = 0,
+    color = "#1A73E8",
+    fontface = "bold",
+    size = 3.8
+  ) +
+  scale_y_continuous(
+    labels = function(x)
+      format(x, scientific = FALSE)
+  ) +
+  scale_x_date(date_breaks = "1 day", date_labels = "%d") +
+  labs(title = "Notikumu skaits pa dienām", x = "Datums", y = "Notikumu skaits") +
+  theme_bw(base_size = 15) +
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5)
+  )
+
+print(notikumu_grafiks)
+
+#ggsave("notikumu_grafiks.png", plot = notikumu_grafiks, width = 8, height = 6, dpi = 300)
+
+
+# Trenda līnija ir lokāli svērtā lineārā regresija
+
+
+# 2. uzdevums. Noteikt lietotāju skaitu, kuriem 18.datumā bija aktīvs pakalpojums "1".
+
+#View(pakalpojumi)
+
+skim(pakalpojumi)
+
+aktivs_1_18dat <- pakalpojumi %>%
+  filter(Pakalpojums == 1, Pak_piesl_datums <= 18, Pak_atsl_datums >= 18)
+
+# Lietotāji kuriem aktīvs pakalpojums 1
+
+n_distinct(aktivs_1_18dat$Lietotaja_ID)
+
+# 46395 lietotajiem 18. datumā bija aktīvs pakalpojums "1"
+
+
+# 3. uzdevums.
+# Kāds bija pakalpojuma "2" lietotāju zvanu skaits pa dienām
+# (kopējais zvanu skaits datumā X pakalpojumam "2";
+# X mainās no 1...30)?
+
+
+# aktivo_saraksts <- function(Diena) {
+#   pakalpojumi %>%
+#     filter(
+#       Pakalpojums == 2,
+#       Pak_piesl_datums <= Diena,
+#       Pak_atsl_datums >= Diena
+#     )
+# }
+#
+# aktivo_apkopojums <- do.call(
+#   rbind,
+#   lapply(1:30, function(d) {
+#     aktivo_saraksts(d) %>%
+#     mutate(diena = d)})
+# )
+#
+# # View(aktivo_apkopojums)
+#
+# zvanu_tabula <- notikumi_t %>%
+# filter(notikums == "zvani")
+#
+# zvanu_skaits_diena <- aktivo_apkopojums %>%
+#   inner_join(zvanu_tabula, by = c("Lietotaja_ID" = "lietotajs")) %>%
+#   filter(Diena == datums) %>%
+#   group_by(Diena) %>%
+#   summarise(Zvanu_skaits = sum(skaits)) %>%
+# print(zvanu_skaits_diena)
+
+
+
+
+aktivo_saraksts <- function(Diena) {
+  pakalpojumi %>%
+    filter(Pakalpojums == 2,
+           Pak_piesl_datums <= Diena,
+           Pak_atsl_datums >= Diena)
+}
+
+zvanu_tabula <- notikumi_t %>%
+  filter(notikums == "zvani")
+
+zvanu_skaits_diena <- do.call(rbind, lapply(1:30, function(d) {
+  aktivi <- aktivo_saraksts(d)
+  
+  zvani_diena <- zvanu_tabula %>%
+    filter(datums == d) %>%
+    inner_join(aktivi, by = c("lietotajs" = "Lietotaja_ID"))
+  data.frame(diena = d,
+             Zvanu_skaits = sum(zvani_diena$skaits))
+}))
+
+#View(zvanu_skaits_diena)
+
+
+
+
+
+max_punkts_zvani <- zvanu_skaits_diena %>%
+  slice_max(Zvanu_skaits, n = 1)
+
+min_punkts_zvani <- zvanu_skaits_diena %>%
+  slice_min(Zvanu_skaits, n = 1)
+
+pedejais_punkts_zvani <- zvanu_skaits_diena %>%
+  slice_tail(n = 1)
+
+videjais_zvanu_skaits <- mean(zvanu_skaits_diena$Zvanu_skaits, na.rm = TRUE)
+
+
+zvanu_grafiks <- ggplot(zvanu_skaits_diena, aes(x = diena, y = Zvanu_skaits)) +
+  geom_area(fill = "#FF8C42", alpha = 0.35) +
+  geom_line(color = "#E67E22", linewidth = 1.2) +
+  geom_hline(yintercept = videjais_zvanu_skaits,
+             color = "#424242",
+             linetype = "dashed") + annotate(
+               "text",
+               x = Inf,
+               y = videjais_zvanu_skaits,
+               label = paste0("Vidējais = ", round(videjais_zvanu_skaits, 0)),
+               hjust = 1.1,
+               vjust = -0.5,
+               color = "black",
+               size = 4
+             ) +
+  geom_point(data = max_punkts_zvani,
+             color = "#2E7D32",
+             size = 4) +
+  geom_point(data = min_punkts_zvani,
+             color = "#D81B60",
+             size = 4) +
+  geom_point(data = pedejais_punkts_zvani,
+             color = "#E67E22",
+             size = 4) +
+  geom_text(
+    data = max_punkts_zvani,
+    aes(label = Zvanu_skaits),
+    vjust = 2.5,
+    hjust = -0.5,
+    color = "#2E7D32",
+    fontface = "bold",
+    size = 4
+  ) +
+  geom_text(
+    data = min_punkts_zvani,
+    aes(label = Zvanu_skaits),
+    vjust = 2.5,
+    color = "#D81B60",
+    fontface = "bold",
+    size = 4
+  ) +
+  geom_text(
+    data = pedejais_punkts_zvani,
+    aes(label = Zvanu_skaits),
+    vjust = -3.5,
+    hjust = 0,
+    color = "#E67E22",
+    fontface = "bold",
+    size = 4
+  ) +
+  geom_text(
+    data = max_punkts_zvani,
+    aes(label = "Max"),
+    vjust = 4,
+    hjust = -0.8,
+    color = "#2E7D32",
+    fontface = "bold",
+    size = 3.8
+  ) +
+  geom_text(
+    data = min_punkts_zvani,
+    aes(label = "Min"),
+    vjust = 4,
+    hjust = 0.8,
+    color = "#D81B60",
+    fontface = "bold",
+    size = 3.8
+  ) +
+  geom_text(
+    data = pedejais_punkts_zvani,
+    aes(label = "Pēdējais"),
+    vjust = -2,
+    hjust = 0,
+    color = "#E67E22",
+    fontface = "bold",
+    size = 3.8
+  ) +
+  scale_y_continuous(
+    labels = function(x)
+      format(x, scientific = FALSE)
+  ) +
+  scale_x_date(date_breaks = "1 day", date_labels = "%d") +
+  labs(title = "Zvanu skaits pa dienām", x = "Diena", y = "Zvanu skaits") +
+  theme_bw(base_size = 15) +
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5)
+  )
+
+print(zvanu_grafiks)
+
+#ggsave("zvanu_grafiks.png", plot = zvanu_grafiks, width = 8, height = 6, dpi = 300)
+
+
+
+ts_zvanu_skaits_diena <- ts(
+  zvanu_skaits_diena$Zvanu_skaits,
+  frequency = 7,
+  start = min(zvanu_skaits_diena$diena)
+)
+
+autocorrelation_plot_zvani <- ggAcf(ts_zvanu_skaits_diena) +
+  ggtitle("Zvanu skaita sezonalitāte - reizi 7 dienās ir zvanu pieaugums, bet katrā ceturtajā dienā ir izteikts zvanu kritums") +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
+
+autocorrelation_plot_zvani
+
+
+# ggsave("autocorrelation_plot_zvani.png", plot = autocorrelation_plot_zvani, width = 8, height = 6, dpi = 300)
+
+# Zvanu skaita prognozes izveide
+
+fit_zvani <- auto.arima(ts_zvanu_skaits_diena, seasonal = TRUE)
+fc_zvani <- forecast(fit_zvani, h = 14)
+
+fc_plot_zvani <- autoplot(fc_zvani) +
+  
+  ggtitle("Zvani dienā - prognoze ar 95% un 80% ticamības intervāliem") +
+  scale_x_continuous( breaks = scales::pretty_breaks(n = 7), 
+                      labels = function(x) paste0(x, ". nedēļa")) + 
+  xlab("Nedēļa pēc kārtas") +
+  ylab("Zvanu skaits") +
+  theme_bw()
+
+fc_plot_zvani 
+# 
+# ggsave("fc_plot_zvani .png", plot = fc_plot_zvani , width = 8, height = 6, dpi = 300)
+
+
+checkresiduals(fc_zvani)
+
+# Ljung-Box test
+# 
+# data:  Residuals from ARIMA(1,0,1)(1,1,0)[7] with drift
+# Q* = 2.5064, df = 3, p-value = 0.4741
+# 
+# Model df: 3.   Total lags used: 6
+
+# Tā kā pēc Lung-box testa p-vērtība ir lielāka 
+# par 0.05, tad modelī nav saglabājusies autokorelācija, kas ir labi un prognozei būtu jābūt ticamai.
+
+
+
+dienu_sezonalitate <-
+  ggsubseriesplot(ts_zvanu_skaits_diena)+
+  scale_x_discrete(limits = c("Pirmdiena", "Otrdiena", "Trešdiena", 
+                              "Ceturtdiena", "Peiktdiena", "Sestdeina", "Svētdiena"))+
+  ggtitle("Zvanu skaits pa dienām") +
+  xlab("Nedēļas diena") +
+  ylab("Zvanu skaits")+
+  theme_bw()
+
+dienu_sezonalitate
+
+# ggsave("dienu_sezonalitate .png", plot = dienu_sezonalitate, width = 8, height = 6, dpi = 300)
+
